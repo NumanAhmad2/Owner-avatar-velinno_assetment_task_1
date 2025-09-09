@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:velinno_assestment_task/features/home/model/top_stories_model.dart';
 import 'package:velinno_assestment_task/features/home/view/widget/article_card.dart';
 import 'package:velinno_assestment_task/features/home/view/widget/featured_article_card.dart';
+import 'package:velinno_assestment_task/features/home/view/widget/filter_button.dart';
+import 'package:velinno_assestment_task/features/home/view/widget/search_bar.dart';
 import 'package:velinno_assestment_task/features/home/view/widget/theme_toggle_button.dart';
 import 'package:velinno_assestment_task/features/home/view_model/home_screen_cubit.dart';
 
@@ -312,6 +314,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [const SearchBarWidget(), const FilterButton()],
+          ),
+          const SizedBox(height: 24),
           if (model.results.isNotEmpty) ...[
             FeaturedArticleCard(article: model.results[0]),
             const SizedBox(height: 24),

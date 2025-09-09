@@ -15,6 +15,9 @@ part 'home_screen_state.dart';
 class HomeScreenCubit extends Cubit<HomeScreenState> {
   HomeScreenCubit() : super(const HomeScreenState());
 
+  TopStoriesModel? _originalTopStoriesModel;
+  bool _hasFetchedData = false;
+
   Future<void> getTopStories() async {
     try {
       emit(state.copyWith(isLoading: true, errorMessage: ''));
@@ -31,6 +34,8 @@ class HomeScreenCubit extends Cubit<HomeScreenState> {
         },
         (success) {
           final topStoriesModel = TopStoriesModel.fromJson(success.data);
+          _originalTopStoriesModel = topStoriesModel;
+          _hasFetchedData = true;
           Map<String, List<Result>>? updatedCategories = {};
 
           for (final article in topStoriesModel.results) {
@@ -58,5 +63,37 @@ class HomeScreenCubit extends Cubit<HomeScreenState> {
     } finally {
       emit(state.copyWith(isLoading: false));
     }
+  }
+
+  void searchArticles(String query) {
+    if (query.isEmpty) {
+      emit(
+        state.copyWith(
+          isLoading: false,
+          topStoriesModel: _originalTopStoriesModel,
+          errorMessage: '',
+        ),
+      );
+      return;
+    }
+
+    final filteredArticles = state.topStoriesModel?.results.where((article) {
+      return article.title.toLowerCase().contains(query.toLowerCase());
+    }).toList();
+
+    emit(
+      state.copyWith(
+        isLoading: false,
+        topStoriesModel: TopStoriesModel(
+          results: filteredArticles ?? [],
+          status: '',
+          copyright: '',
+          section: '',
+          lastUpdated: DateTime.now(),
+          numResults: 4,
+        ),
+        errorMessage: '',
+      ),
+    );
   }
 }
