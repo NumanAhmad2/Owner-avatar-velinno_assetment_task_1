@@ -96,4 +96,42 @@ class HomeScreenCubit extends Cubit<HomeScreenState> {
       ),
     );
   }
+
+  void filterByCategory(String category) {
+    if (!_hasFetchedData || _originalTopStoriesModel == null) return;
+
+    if (category == "all") {
+      emit(
+        state.copyWith(
+          isLoading: false,
+          topStoriesModel: _originalTopStoriesModel,
+          errorMessage: '',
+          appliedFilter: '',
+        ),
+      );
+      return;
+    }
+
+    final filteredArticles = state.newsCategories[category] ?? [];
+
+    emit(
+      state.copyWith(
+        isLoading: false,
+        appliedFilter: category,
+        topStoriesModel: TopStoriesModel(
+          results: filteredArticles,
+          status: '',
+          copyright: '',
+          section: '',
+          lastUpdated: DateTime.now(),
+          numResults: filteredArticles.length,
+        ),
+        errorMessage: '',
+      ),
+    );
+  }
+
+  void toggleFiltersVisibility() {
+    emit(state.copyWith(showFilters: !state.showFilters));
+  }
 }

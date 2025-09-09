@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:velinno_assestment_task/features/details/view/details_screen.dart';
 import 'package:velinno_assestment_task/features/home/model/top_stories_model.dart';
 
 class ArticleCard extends StatefulWidget {
@@ -50,7 +51,12 @@ class ArticleCardState extends State<ArticleCard>
             onTapUp: (_) => _hoverController.reverse(),
             onTapCancel: () => _hoverController.reverse(),
             onTap: () {
-              // TODO: Navigate to detail page
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DetailsScreen(url: widget.article.url),
+                ),
+              );
             },
             child: Container(
               decoration: BoxDecoration(
@@ -69,7 +75,6 @@ class ArticleCardState extends State<ArticleCard>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Image section
                     Expanded(
                       flex: 3,
                       child: CachedNetworkImage(

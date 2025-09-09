@@ -10,6 +10,9 @@ class SearchBarWidget extends StatelessWidget {
     return SizedBox(
       width: MediaQuery.sizeOf(context).width * 0.76,
       child: SearchBar(
+        onTapOutside: (event) {
+          FocusScope.of(context).unfocus();
+        },
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
