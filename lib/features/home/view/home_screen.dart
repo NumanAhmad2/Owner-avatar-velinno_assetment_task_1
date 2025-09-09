@@ -1,8 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:velinno_assestment_task/core/theme/theme_cubit.dart';
 import 'package:velinno_assestment_task/features/home/model/top_stories_model.dart';
+import 'package:velinno_assestment_task/features/home/view/widget/article_card.dart';
+import 'package:velinno_assestment_task/features/home/view/widget/featured_article_card.dart';
+import 'package:velinno_assestment_task/features/home/view/widget/theme_toggle_button.dart';
 import 'package:velinno_assestment_task/features/home/view_model/home_screen_cubit.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -12,79 +14,244 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  late AnimationController _animationController;
+  late AnimationController _refreshController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _refreshController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.elasticOut,
+          ),
+        );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<HomeScreenCubit>().getTopStories();
+      _animationController.forward();
     });
   }
 
   @override
+  void dispose() {
+    _animationController.dispose();
+    _refreshController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        elevation: 0,
-        title: Text(
-          "Top Stories",
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: BlocBuilder<ThemeCubit, ThemeMode>(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 120,
+            floating: false,
+            pinned: true,
+            elevation: 0,
+            backgroundColor: theme.scaffoldBackgroundColor,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 24, bottom: 16),
+              title: AnimatedBuilder(
+                animation: _fadeAnimation,
+                builder: (context, child) {
+                  return Opacity(
+                    opacity: _fadeAnimation.value,
+                    child: ShaderMask(
+                      shaderCallback: (bounds) => LinearGradient(
+                        colors: isDark
+                            ? [Colors.white, Colors.white70]
+                            : [
+                                theme.colorScheme.primary,
+                                theme.colorScheme.secondary,
+                              ],
+                      ).createShader(bounds),
+                      child: Text(
+                        "Top Stories",
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [
+                            theme.colorScheme.surface,
+                            theme.colorScheme.surface.withValues(alpha: 0.8),
+                          ]
+                        : [
+                            theme.colorScheme.primary.withValues(alpha: 0.1),
+                            theme.colorScheme.secondary.withValues(alpha: 0.05),
+                          ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [const ThemeToggleButton()],
+          ),
+
+          // Content
+          SliverToBoxAdapter(
+            child: BlocBuilder<HomeScreenCubit, HomeScreenState>(
               builder: (context, state) {
-                return Icon(
-                  state == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode,
-                );
+                if (state.isLoading) {
+                  return _buildLoadingState(theme);
+                } else if (state.errorMessage.isNotEmpty) {
+                  return _buildErrorState(state.errorMessage, theme);
+                } else if (state.topStoriesModel != null) {
+                  return AnimatedBuilder(
+                    animation: _slideAnimation,
+                    builder: (context, child) {
+                      return SlideTransition(
+                        position: _slideAnimation,
+                        child: FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: _buildArticlesList(state.topStoriesModel!),
+                        ),
+                      );
+                    },
+                  );
+                } else {
+                  return _buildEmptyState(theme);
+                }
               },
             ),
-            onPressed: context
-                .read<ThemeCubit>()
-                .toggleTheme, // 👈 toggle theme
           ),
         ],
       ),
-      body: BlocBuilder<HomeScreenCubit, HomeScreenState>(
-        builder: (context, state) {
-          if (state.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (state.errorMessage.isNotEmpty) {
-            return _buildErrorState(state.errorMessage, Theme.of(context));
-          } else if (state.topStoriesModel != null) {
-            return ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: state.topStoriesModel!.results.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
-              itemBuilder: (context, index) {
-                final article = state.topStoriesModel!.results[index];
-                return _ArticleCard(article: article);
-              },
-            );
-          } else {
-            return _buildEmptyState(Theme.of(context));
-          }
-        },
+    );
+  }
+
+  Widget _buildLoadingState(ThemeData theme) {
+    return SizedBox(
+      height: 400,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.shadowColor.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: CupertinoActivityIndicator(
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              "Loading stories...",
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildErrorState(String error, ThemeData theme) {
-    return Center(
+    return Container(
+      margin: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-          const SizedBox(height: 12),
-          Text(error, style: theme.textTheme.bodyLarge),
-          const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: () => context.read<HomeScreenCubit>().getTopStories(),
-            child: const Text("Retry"),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.error.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              Icons.error_outline_rounded,
+              size: 48,
+              color: theme.colorScheme.error,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            "Something went wrong",
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            error,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              _animationController.reset();
+              context.read<HomeScreenCubit>().getTopStories();
+              _animationController.forward();
+            },
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text("Try Again"),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
           ),
         ],
       ),
@@ -92,109 +259,82 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildEmptyState(ThemeData theme) {
-    return Center(
+    return Container(
+      margin: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.article_outlined, size: 48, color: theme.iconTheme.color),
-          const SizedBox(height: 12),
-          Text("No articles available", style: theme.textTheme.bodyLarge),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              Icons.article_rounded,
+              size: 48,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            "No Stories Available",
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Check back later for new articles",
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
         ],
       ),
     );
   }
-}
 
-class _ArticleCard extends StatelessWidget {
-  final Result article;
-
-  const _ArticleCard({required this.article});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () {
-        // TODO: Navigate to detail page
-      },
-      child: Container(
-        height: 220,
-        decoration: BoxDecoration(
-          color: theme.cardColor,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: theme.shadowColor.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
+  Widget _buildArticlesList(TopStoriesModel model) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          if (model.results.isNotEmpty) ...[
+            FeaturedArticleCard(article: model.results[0]),
+            const SizedBox(height: 24),
           ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Stack(
-            children: [
-              // Background image
-              Positioned.fill(
-                child: CachedNetworkImage(
-                  imageUrl: article.multimedia[0].url,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) =>
-                      Container(color: theme.dividerColor),
-                  errorWidget: (context, url, error) => Container(
-                    color: theme.dividerColor,
-                    child: Icon(
-                      Icons.broken_image,
-                      color: theme.iconTheme.color,
-                    ),
-                  ),
-                ),
+          if (model.results.length > 1)
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.75,
               ),
-
-              // Gradient overlay (keep for readability)
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        theme.colorScheme.surface.withOpacity(0.8),
-                        Colors.transparent,
-                      ],
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                    ),
-                  ),
-                ),
-              ),
-
-              // Article content
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      article.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (article.byline.isNotEmpty)
-                      Text(article.byline, style: theme.textTheme.bodySmall),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+              itemCount: model.results.length - 1,
+              itemBuilder: (context, index) {
+                return ArticleCard(
+                  article: model.results[index + 1],
+                  index: index,
+                );
+              },
+            ),
+        ],
       ),
     );
   }

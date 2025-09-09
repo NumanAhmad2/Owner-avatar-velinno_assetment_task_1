@@ -58,7 +58,7 @@ class Result {
   DateTime createdDate;
   DateTime publishedDate;
   String materialTypeFacet;
-  Kicker kicker;
+  Kicker? kicker;
   List<String> desFacet;
   List<String> orgFacet;
   List<String> perFacet;
@@ -101,7 +101,7 @@ class Result {
     createdDate: DateTime.parse(json["created_date"]),
     publishedDate: DateTime.parse(json["published_date"]),
     materialTypeFacet: json["material_type_facet"],
-    kicker: kickerValues.map[json["kicker"]]!,
+    kicker: kickerValues.map[json["kicker"]],
     desFacet: List<String>.from(json["des_facet"].map((x) => x)),
     orgFacet: List<String>.from(json["org_facet"].map((x) => x)),
     perFacet: List<String>.from(json["per_facet"].map((x) => x)),

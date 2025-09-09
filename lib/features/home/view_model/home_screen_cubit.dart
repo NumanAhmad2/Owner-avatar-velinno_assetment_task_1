@@ -16,41 +16,47 @@ class HomeScreenCubit extends Cubit<HomeScreenState> {
   HomeScreenCubit() : super(const HomeScreenState());
 
   Future<void> getTopStories() async {
-    emit(state.copyWith(isLoading: true, errorMessage: ''));
+    try {
+      emit(state.copyWith(isLoading: true, errorMessage: ''));
 
-    final Either<Failure, Response<dynamic>> response = await ApiProvider()
-        .getApi(
-          queryParameters: {"api-key": "BE2uWdO8BqsCUAMHk3ZWcDM4wehtYre3"},
-          endpoint: '',
-        );
-
-    response.fold(
-      (failure) {
-        emit(state.copyWith(isLoading: false, errorMessage: failure.message));
-      },
-      (success) {
-        final topStoriesModel = TopStoriesModel.fromJson(success.data);
-        Map<String, List<Result>>? updatedCategories = {};
-
-        for (final article in topStoriesModel.results) {
-          updatedCategories.update(
-            article.section,
-            (existing) => [...existing, article],
-            ifAbsent: () => [article],
+      final Either<Failure, Response<dynamic>> response = await ApiProvider()
+          .getApi(
+            queryParameters: {"api-key": "BE2uWdO8BqsCUAMHk3ZWcDM4wehtYre3"},
+            endpoint: '',
           );
-        }
 
-        log("these are the categories: $updatedCategories");
+      response.fold(
+        (failure) {
+          emit(state.copyWith(isLoading: false, errorMessage: failure.message));
+        },
+        (success) {
+          final topStoriesModel = TopStoriesModel.fromJson(success.data);
+          Map<String, List<Result>>? updatedCategories = {};
 
-        emit(
-          state.copyWith(
-            isLoading: false,
-            topStoriesModel: topStoriesModel,
-            errorMessage: '',
-            newsCategories: updatedCategories,
-          ),
-        );
-      },
-    );
+          for (final article in topStoriesModel.results) {
+            updatedCategories.update(
+              article.section,
+              (existing) => [...existing, article],
+              ifAbsent: () => [article],
+            );
+          }
+
+          log("these are the categories: $updatedCategories");
+
+          emit(
+            state.copyWith(
+              isLoading: false,
+              topStoriesModel: topStoriesModel,
+              errorMessage: '',
+              newsCategories: updatedCategories,
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
+    } finally {
+      emit(state.copyWith(isLoading: false));
+    }
   }
 }

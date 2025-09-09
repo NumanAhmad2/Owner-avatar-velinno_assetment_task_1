@@ -5,7 +5,6 @@ import 'package:velinno_assestment_task/services/api_service.dart';
 class ApiProvider {
   final ApiService _apiService = ApiService.instance;
 
-  // Generic GET API function
   Future<Either<Failure, Response>> getApi<T>({
     required String endpoint,
     Map<String, String>? headers,
